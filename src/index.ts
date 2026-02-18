@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import productsRouter from "./routes/products";
 import cartRouter from "./routes/cart";
 import ordersRouter from "./routes/orders";
+import categoriesRouter from "./routes/categories";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/products", productsRouter);
 app.use("/api/cart", cartRouter);
 app.use("/api/orders", ordersRouter);
+app.use("/api/categories", categoriesRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
