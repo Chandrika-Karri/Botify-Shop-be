@@ -3,14 +3,19 @@ import { prisma } from "../prisma";
 
 const router = Router();
 
-// ✅ GET all products
-router.get("/", async (_req, res) => {
-  const products = await prisma.product.findMany({ orderBy: { createdAt: "desc" } });
+// ✅ GET all products OR filter by category
+router.get("/", async (req, res) => {
+  const { category } = req.query;
+
+  const products = await prisma.product.findMany({
+    where: category ? { category: String(category) } : {},
+    orderBy: { createdAt: "desc" },
+  });
 
   res.json(
     products.map((p) => ({
       ...p,
-      images: JSON.parse(p.images)
+      images: JSON.parse(p.images),
     }))
   );
 });
@@ -27,6 +32,7 @@ router.get("/:id", async (req, res) => {
     images: JSON.parse(product.images)
   });
 });
+
 
 // ✅ CREATE product (POST)
 router.post("/", async (req, res) => {
