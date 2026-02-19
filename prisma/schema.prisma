@@ -14,6 +14,7 @@ model Product {
   description String
   category    String
   images      String
+  stock       Int       @default(1)
   createdAt   DateTime   @default(now())
 
   cartItems   CartItem[]
