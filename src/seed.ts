@@ -1,77 +1,88 @@
 import { prisma } from "./prisma";
 
 async function main() {
-  // Clear old data (optional)
+  // Clear old data
   await prisma.product.deleteMany();
 
   const products = [
     {
-      name: "Nike Air Max",
-      price: 150,
-      description: "Comfortable running shoes",
-      category: "Shoes",
-      images: JSON.stringify(["nike1.jpg", "nike2.jpg"]),
+      name: "Donibot",
+      price: 5000,
+      description: "Delivery robot",
+      category: "Delivery robots",
+      images: JSON.stringify(["donibot.jpg"]),
+      stock: 5
     },
     {
-      name: "Adidas Ultraboost",
-      price: 180,
-      description: "High performance running shoes",
-      category: "Shoes",
-      images: JSON.stringify(["ultra1.jpg", "ultra2.jpg"]),
+      name: "Donibot Pro",
+      price: 7000,
+      description: "Advanced delivery robot",
+      category: "Delivery robots",
+      images: JSON.stringify(["donibot-pro.jpg"]),
+      stock: 3
     },
     {
-      name: "Puma T-Shirt",
-      price: 35,
-      description: "Soft cotton t-shirt",
-      category: "Clothing",
-      images: JSON.stringify(["puma1.jpg"]),
+      name: "Donibot Plus",
+      price: 7500,
+      description: "Premium delivery robot",
+      category: "Delivery robots",
+      images: JSON.stringify(["donibot-plus.jpg"]),
+      stock: 2
     },
     {
-      name: "Apple Watch",
-      price: 299,
-      description: "Smart watch with fitness tracking",
-      category: "Accessories",
-      images: JSON.stringify(["watch1.jpg", "watch2.jpg"]),
+      name: "Carrycot",
+      price: 3000,
+      description: "Robot carrycot",
+      category: "Delivery robots",
+      images: JSON.stringify(["carrycot.jpg"]),
+      stock: 4
     },
     {
-      name: "Backpack",
-      price: 59,
-      description: "Everyday backpack",
-      category: "Accessories",
-      images: JSON.stringify(["bag1.jpg"]),
+      name: "Greetings Bot Mini",
+      price: 2000,
+      description: "Mini greeting robot",
+      category: "Greeting robots",
+      images: JSON.stringify(["greet-mini.jpg"]),
+      stock: 4
     },
     {
-      name: "Denim Jacket",
-      price: 89,
-      description: "Classic denim jacket",
-      category: "Clothing",
-      images: JSON.stringify(["jacket1.jpg"]),
+      name: "Greeting Bot Nova",
+      price: 2500,
+      description: "Nova greeting robot",
+      category: "Greeting robots",
+      images: JSON.stringify(["greet-nova.jpg"]),
+      stock: 3
     },
     {
-      name: "Sunglasses",
-      price: 25,
-      description: "UV protection sunglasses",
-      category: "Accessories",
-      images: JSON.stringify(["sun1.jpg"]),
+      name: "Clean Bot",
+      price: 3500,
+      description: "Cleaning robot",
+      category: "Cleaning robots",
+      images: JSON.stringify(["clean-bot.jpg"]),
+      stock: 2
     },
     {
-      name: "Running Shorts",
-      price: 29,
-      description: "Lightweight shorts",
-      category: "Clothing",
-      images: JSON.stringify(["shorts1.jpg"]),
+      name: "Clean Bot A",
+      price: 3600,
+      description: "Cleaning robot A",
+      category: "Cleaning robots",
+      images: JSON.stringify(["clean-bot-a.jpg"]),
+      stock: 2
     },
+    {
+      name: "Clean Bot B",
+      price: 3700,
+      description: "Cleaning robot B",
+      category: "Cleaning robots",
+      images: JSON.stringify(["clean-bot-b.jpg"]),
+      stock: 1
+    }
   ];
 
   await prisma.product.createMany({ data: products });
-  console.log("✅ Seeded products!");
+  console.log("✅ Seeded robot products!");
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch(console.error)
+  .finally(async () => prisma.$disconnect());
