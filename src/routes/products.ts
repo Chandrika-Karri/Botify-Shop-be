@@ -5,10 +5,13 @@ const router = Router();
 
 // ✅ GET all products OR filter by category
 router.get("/", async (req, res) => {
-  const { category } = req.query;
+  // await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate delay
+  const { categories } = req.query;
+
+  const categoryArray = typeof categories === "string" ? categories.split(",").map(c => c.trim()) : [];
 
   const products = await prisma.product.findMany({
-    where: category ? { category: String(category) } : {},
+    where: categoryArray.length > 0 ? { category: { in: categoryArray } } : {},
     orderBy: { createdAt: "desc" },
   });
 
