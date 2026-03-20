@@ -1,130 +1,202 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { prisma } from "../prisma";
+import { authMiddleware, authorizeRoles } from "../middleware/authMiddleware";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
 
 const router = Router();
 
-// ✅ GET all products OR filter by category
-router.get("/", async (req, res) => {
-  // await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate delay
-  const { categories } = req.query;
+// -------------------------
+// Multer setup
+// -------------------------
+const uploadDir = "uploads";
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
-  const categoryArray = typeof categories === "string" ? categories.split(",").map(c => c.trim()) : [];
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
+});
 
+const upload = multer({ storage });
+
+// -------------------------
+// Helpers
+// -------------------------
+const parseImages = (images: any): string[] => {
+  if (Array.isArray(images)) return images;
+  try {
+    return images ? JSON.parse(images) : [];
+  } catch {
+    return [];
+  }
+};
+
+const formatProduct = (p: any) => ({
+  ...p,
+  images: parseImages(p.images),
+});
+
+// -------------------------
+// GET all products
+// -------------------------
+router.get("/", async (_req: Request, res: Response) => {
   const products = await prisma.product.findMany({
-    where: categoryArray.length > 0 ? { category: { in: categoryArray } } : {},
     orderBy: { createdAt: "desc" },
   });
-
-  res.json(
-    products.map((p) => ({
-      ...p,
-      images: JSON.parse(p.images),
-    }))
-  );
+  res.json(products.map(formatProduct));
 });
 
-// ✅ GET product by ID
-router.get("/:id", async (req, res) => {
+// -------------------------
+// GET product by ID
+// -------------------------
+router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
-
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) return res.status(404).json({ error: "Product not found" });
-
-  res.json({
-    ...product,
-    images: JSON.parse(product.images)
-  });
+  res.json(formatProduct(product));
 });
 
+// -------------------------
+// CREATE product (super_admin only)
+// -------------------------
+router.post(
+  "/",
+  authMiddleware,
+  authorizeRoles("super_admin"),
+  upload.array("images", 5),
+  async (req: Request, res: Response) => {
+    const { name, price, description, category, stock } = req.body;
 
-// ✅ CREATE product (POST)
-router.post("/", async (req, res) => {
-  if (!req.body) return res.status(400).json({ error: "Body is required" });
-
-  const { name, price, description, category, images } = req.body;
-
-  if (!name || typeof name !== "string") return res.status(400).json({ error: "name is required" });
-  if (typeof price !== "number") return res.status(400).json({ error: "price must be a number" });
-  if (!description || typeof description !== "string") return res.status(400).json({ error: "description is required" });
-  if (!category || typeof category !== "string") return res.status(400).json({ error: "category is required" });
-
-  const imgs = Array.isArray(images) ? images : [];
-
-  const product = await prisma.product.create({
-    data: {
-      name,
-      price,
-      description,
-      category,
-      images: JSON.stringify(imgs)
+    if (!name || price == null || !description || !category || stock == null) {
+      return res.status(400).json({ error: "All fields including stock are required" });
     }
-  });
 
-  res.status(201).json({
-    ...product,
-    images: JSON.parse(product.images)
-  });
-});
+    const parsedStock = parseInt(stock);
+    if (isNaN(parsedStock) || parsedStock < 0) {
+      return res.status(400).json({ error: "Invalid stock value" });
+    }
 
-// ✅ UPDATE product (PUT) — partial update allowed
-router.put("/:id", async (req, res) => {
-  const { id } = req.params;
-  if (!req.body) return res.status(400).json({ error: "Body is required" });
+    const files = req.files as Express.Multer.File[] | undefined;
+    const images = files ? files.map((f) => `/${uploadDir}/${f.filename}`) : [];
 
-  const { name, price, description, category, images } = req.body;
-
-  const data: any = {};
-
-  if (name !== undefined) {
-    if (typeof name !== "string") return res.status(400).json({ error: "name must be string" });
-    data.name = name;
-  }
-
-  if (price !== undefined) {
-    if (typeof price !== "number") return res.status(400).json({ error: "price must be number" });
-    data.price = price;
-  }
-
-  if (description !== undefined) {
-    if (typeof description !== "string") return res.status(400).json({ error: "description must be string" });
-    data.description = description;
-  }
-
-  if (category !== undefined) {
-    if (typeof category !== "string") return res.status(400).json({ error: "category must be string" });
-    data.category = category;
-  }
-
-  if (images !== undefined) {
-    if (!Array.isArray(images)) return res.status(400).json({ error: "images must be an array" });
-    data.images = JSON.stringify(images);
-  }
-
-  try {
-    const updated = await prisma.product.update({
-      where: { id },
-      data
+    const product = await prisma.product.create({
+      data: {
+        name,
+        price: Number(price),
+        description,
+        category,
+        stock: parsedStock,
+        images,
+      },
     });
 
-    res.json({
-      ...updated,
-      images: JSON.parse(updated.images)
-    });
-  } catch {
-    res.status(404).json({ error: "Product not found" });
+    res.status(201).json(formatProduct(product));
   }
-});
+);
 
-// ✅ DELETE product
-router.delete("/:id", async (req, res) => {
-  const { id } = req.params;
+// -------------------------
+// UPDATE product (super_admin only, no stock change)
+// -------------------------
+router.put(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("super_admin"),
+  upload.array("images", 5),
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { name, price, description, category, existingImages } = req.body;
 
-  try {
-    await prisma.product.delete({ where: { id } });
-    res.json({ message: "Product deleted successfully" });
-  } catch {
-    res.status(404).json({ error: "Product not found" });
+    if (!name || price == null || !description || !category) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    try {
+      const product = await prisma.product.findUnique({ where: { id } });
+      if (!product) return res.status(404).json({ error: "Product not found" });
+
+      // parse existing images
+      const oldImages = (() => {
+        if (!existingImages) return [];
+        if (Array.isArray(existingImages)) return existingImages;
+        try {
+          return JSON.parse(existingImages);
+        } catch {
+          return [];
+        }
+      })();
+
+      const files = req.files as Express.Multer.File[] | undefined;
+      const newImages = files ? files.map((f) => `/${uploadDir}/${f.filename}`) : [];
+
+      const allImages = [...oldImages, ...newImages];
+
+      const updated = await prisma.product.update({
+        where: { id },
+        data: {
+          name,
+          price: Number(price),
+          description,
+          category,
+          images: allImages,
+          // stock NOT updated here
+        },
+      });
+
+      res.json(formatProduct(updated));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to update product" });
+    }
   }
-});
+);
+
+// -------------------------
+// UPDATE STOCK (super_admin + admin)
+// -------------------------
+router.put(
+  "/:id/stock",
+  authMiddleware,
+  authorizeRoles("super_admin", "admin"),
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { stock } = req.body;
+
+    if (stock == null || stock < 0) {
+      return res.status(400).json({ error: "Stock must be a non-negative number" });
+    }
+
+    try {
+      const updated = await prisma.product.update({
+        where: { id },
+        data: { stock: Number(stock) },
+      });
+
+      res.json({ message: "Stock updated successfully", product: formatProduct(updated) });
+    } catch (err) {
+      console.error(err);
+      res.status(404).json({ error: "Product not found" });
+    }
+  }
+);
+
+// -------------------------
+// DELETE product (super_admin only)
+// -------------------------
+router.delete(
+  "/:id",
+  authMiddleware,
+  authorizeRoles("super_admin"),
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    try {
+      await prisma.product.delete({ where: { id } });
+      res.json({ message: "Product deleted successfully" });
+    } catch {
+      res.status(404).json({ error: "Product not found" });
+    }
+  }
+);
 
 export default router;

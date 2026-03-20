@@ -6,6 +6,8 @@ import productsRouter from "./routes/products";
 import cartRouter from "./routes/cart";
 import ordersRouter from "./routes/orders";
 import categoriesRouter from "./routes/categories";
+import authRouter from "./routes/auth";
+import adminRoutes from "./routes/admins";
 
 dotenv.config();
 
@@ -24,6 +26,9 @@ app.use("/api/products", productsRouter);
 app.use("/api/cart", cartRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/categories", categoriesRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/admins", adminRoutes);
+app.use("/uploads", express.static("uploads"));
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
