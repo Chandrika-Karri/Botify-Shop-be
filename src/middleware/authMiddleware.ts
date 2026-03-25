@@ -5,6 +5,8 @@ import { mergeGuestCart } from "../utils/cart";
 interface JwtPayload {
   userId: string;
   role: string;
+  name: string;
+  email: string;
 }
 
 declare global {

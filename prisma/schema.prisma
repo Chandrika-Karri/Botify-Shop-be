@@ -41,6 +41,7 @@ model Order {
   email     String
   address   String
   total     Float
+  status    String      @default("pending")
   createdAt DateTime    @default(now())
 
   items     OrderItem[]

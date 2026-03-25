@@ -34,7 +34,7 @@ async function main() {
       price: 3000,
       description: "Robot carrycot",
       category: "Delivery robots",
-      images: JSON.stringify(["carrycot.jpg"]),
+      images: JSON.stringify(["/Users/chandrikakarri/code/Botify-Shop-be/uploads/1774349728523-botify_logo.jpeg"]),
       stock: 4
     },
     {
