@@ -38,7 +38,7 @@ router.post("/register", async (req, res) => {
       throw new Error("JWT_SECRET not defined");
   }
     const token = jwt.sign(
-    { userId: user.id, role: user.role },
+    { userId: user.id, role: user.role, name: user.name, email: user.email },
       process.env.JWT_SECRET,
     { expiresIn: "7d" }
     );
@@ -92,7 +92,7 @@ router.post("/login", async (req, res) => {
     
     // generate JWT
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { userId: user.id, role: user.role, name: user.name, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: expiresIn }
     );

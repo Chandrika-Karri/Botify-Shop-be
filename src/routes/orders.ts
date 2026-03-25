@@ -1,52 +1,103 @@
 import { Router } from "express";
 import { prisma } from "../prisma";
-import { authMiddleware } from "../middleware/authMiddleware"; // JWT middleware
+import { authMiddleware } from "../middleware/authMiddleware";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2022-11-15" });
 
 const router = Router();
 
-// POST /api/orders - place order
+// GET /api/orders
+router.get("/", authMiddleware, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: "User not logged in" });
+    }
+
+    const { page = "1", limit = "10", status, userId, allUsers } = req.query;
+
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const where: any = {};
+
+    // Non-admin users only see their orders
+    if (allUsers !== "true") {
+      where.email = req.user.email;
+    }
+
+    if (status && status !== "all") {
+      where.status = status;
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        skip,
+        take: limitNumber,
+        orderBy: { createdAt: "desc" },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    res.json({
+      orders,
+      total,
+    });
+  } catch (error) {
+    console.error("Fetch orders error:", error);
+    res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+// POST /api/orders - create order AFTER payment succeeds
 router.post("/", authMiddleware, async (req, res) => {
-  const { address, items } = req.body as {
-    address?: string;
-    items?: { productId: string; quantity: number }[];
+  const { paymentIntentId, items, address } = req.body as {
+    paymentIntentId: string;
+    items: { productId: string; quantity: number }[];
+    address: string;
   };
 
-  if (!address) return res.status(400).json({ error: "Address is required" });
-  if (!Array.isArray(items) || items.length === 0)
-    return res.status(400).json({ error: "Items must be a non-empty array" });
-
-  const userEmail = req.user.email;
-  const userName = req.user.name;
+  if (!paymentIntentId) return res.status(400).json({ error: "PaymentIntent ID is required" });
+  if (!items || items.length === 0) return res.status(400).json({ error: "Cart items required" });
+  if (!address) return res.status(400).json({ error: "Shipping address required" });
 
   try {
-    // 1️⃣ Load products
+    // 1️⃣ Verify payment with Stripe
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (paymentIntent.status !== "succeeded") {
+      return res.status(400).json({ error: "Payment not completed" });
+    }
+    
+    if (!req.user) return res.status(401).json({ error: "User not logged in" });
+    const userEmail = req.user.email;
+    const userName = req.user.name;
+
+    // 2️⃣ Fetch products from DB
     const productIds = items.map((i) => i.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-    });
-
-    const foundIds = new Set(products.map((p) => p.id));
-    const missing = productIds.filter((id) => !foundIds.has(id));
-    if (missing.length > 0)
-      return res.status(404).json({ error: `Product not found: ${missing[0]}` });
-
-    // 2️⃣ Prepare order items and total
-    let total = 0;
+    const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
     const productMap = new Map(products.map((p) => [p.id, p]));
+
+    let total = 0;
     const orderItemsData = items.map((i) => {
-      const qty = typeof i.quantity === "number" && i.quantity > 0 ? i.quantity : 1;
-      const product = productMap.get(i.productId)!;
-      total += product.price * qty;
-      return { productId: product.id, quantity: qty, price: product.price };
+      const product = productMap.get(i.productId);
+      if (!product) throw new Error(`Product not found: ${i.productId}`);
+      if (product.stock < i.quantity) throw new Error(`Not enough stock for ${product.name}`);
+      total += product.price * i.quantity;
+      return { productId: product.id, quantity: i.quantity, price: product.price };
     });
 
-    // 3️⃣ Transaction: decrease stock + create order
+    // 3️⃣ Transaction: update stock + create order
     const order = await prisma.$transaction(async (tx) => {
       for (const item of orderItemsData) {
-        const product = await tx.product.findUnique({ where: { id: item.productId } });
-        if (!product) throw new Error("Product not found");
-        if (product.stock < item.quantity) throw new Error(`Not enough stock for ${product.name}`);
-
         await tx.product.update({
           where: { id: item.productId },
           data: { stock: { decrement: item.quantity } },
@@ -59,7 +110,7 @@ router.post("/", authMiddleware, async (req, res) => {
           email: userEmail,
           address,
           total,
-          status: "pending",
+          status: "paid",
           items: { create: orderItemsData },
         },
         include: { items: { include: { product: true } } },
@@ -70,67 +121,12 @@ router.post("/", authMiddleware, async (req, res) => {
       ...order,
       items: order.items.map((i) => ({
         ...i,
-        product: { ...i.product, images: JSON.parse(i.product.images) },
+        product: { ...i.product, images: i.product.images  },
       })),
     });
   } catch (err: any) {
-    console.error(err);
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// GET /api/orders - list orders with role-based access
-router.get("/", authMiddleware, async (req, res) => {
-  const userRole = req.user.role;
-  const userEmail = req.user.email;
-
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  const status = req.query.status as string | undefined;
-  const userFilter = req.query.userId as string | undefined;
-  const allUsers = req.query.allUsers === "true";
-
-  let whereClause: any = {};
-
-  if (userRole === "user") {
-    whereClause.email = userEmail;
-  } else if (userRole === "admin" || userRole === "super_admin") {
-    if (!allUsers) {
-      if (userFilter && userFilter !== "all") {
-        whereClause.email = userFilter; // adjust based on your schema (email or userId)
-      }
-    }
-  }
-
-  if (status && status !== "all") whereClause.status = status;
-
-  try {
-    const [orders, total] = await prisma.$transaction([
-      prisma.order.findMany({
-        where: whereClause,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-        include: { items: { include: { product: true } } },
-      }),
-      prisma.order.count({ where: whereClause }),
-    ]);
-
-    res.json({
-      orders: orders.map((o) => ({
-        ...o,
-        items: o.items.map((i) => ({
-          ...i,
-          product: { ...i.product, images: JSON.parse(i.product.images) },
-        })),
-      })),
-      total,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch orders" });
+    console.error("Order creation error:", err);
+    res.status(400).json({ error: err.message || "Failed to create order" });
   }
 });
 
