@@ -1,20 +1,27 @@
-tasks:
-  - task: Pull latest code
-    commands:
-      - git reset --hard
-      - git clean -fd
-      - git pull origin main
+deployment:
+  tasks:
+    - task: Build Backend
+      commands:
+        - echo "=============================="
+        - echo "Starting backend deployment..."
+        - echo "Using environment variables from cPanel"
+        - echo "PORT: $PORT"
+        - echo "STRIPE_SECRET_KEY: **** (hidden for security)"
+        - echo "DATABASE_URL: **** (hidden for security)"
+        - echo "=============================="
 
-  - task: Install dependencies
-    commands:
-      - npm install --production
-      - npm install --include=dev
+        # Install dependencies
+        - echo "Installing Node.js dependencies..."
+        - npm install --production
+        - npm install --include=dev
 
-  - task: Build TypeScript
-    commands:
-      - npm run build
+        # Build TypeScript
+        - echo "Building TypeScript backend..."
+        - npm run build
 
-  - task: Restart Node app
-    commands:
-      - pm2 stop botify-backend || true
-      - pm2 start dist/index.js --name botify-backend --env production
+        # Restart Node app
+        - echo "Restarting Node.js backend..."
+        - pm2 stop botify-backend || true
+        - pm2 start dist/index.js --name botify-backend --env production
+
+        - echo "Backend deployment complete!"
