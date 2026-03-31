@@ -1,0 +1,26 @@
+deployment:
+  tasks:
+    - task: Pull latest code from Git
+      commands:
+        - echo "Pulling latest changes from Git..."
+        - git reset --hard
+        - git clean -fd
+        - git pull origin main  # replace 'main' with your default branch if needed
+
+    - task: Install dependencies
+      commands:
+        - echo "Installing Node.js dependencies..."
+        - npm install --production
+
+    - task: Build TypeScript
+      commands:
+        - echo "Building backend TypeScript..."
+        - npm run build
+
+    - task: Restart Node.js app
+      commands:
+        - echo "Restarting Node.js backend..."
+        # Optional: stop previous process if running with PM2
+        - pm2 stop botify-backend || true
+        # Start backend in production mode
+        - npm run dev:prod
