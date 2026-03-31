@@ -1,33 +1,20 @@
 tasks:
-  # 1. Pull latest code from Git
-  - task: Pull latest code from Git
+  - task: Pull latest code
     commands:
-      - echo "Pulling latest changes from Git..."
       - git reset --hard
       - git clean -fd
-      - git pull origin main  # replace 'main' with your default branch if needed
+      - git pull origin main
 
-  # 2. Install dependencies including devDependencies for build
-  - task: Install dependencies for build
+  - task: Install dependencies
     commands:
-      - echo "Installing Node.js dependencies for build..."
-      - npm ci --include=dev   # include devDependencies like TypeScript
+      - npm install --production
+      - npm install --include=dev
 
-  # 3. Build TypeScript
   - task: Build TypeScript
     commands:
-      - echo "Building backend TypeScript..."
       - npm run build
 
-  # 4. Install only production dependencies
-  - task: Install production dependencies
+  - task: Restart Node app
     commands:
-      - echo "Installing production dependencies..."
-      - npm ci --omit=dev
-
-  # 5. Restart Node.js app
-  - task: Restart Node.js app
-    commands:
-      - echo "Restarting Node.js backend..."
       - pm2 stop botify-backend || true
-      - pm2 start dist/index.js --name botify-backend
+      - pm2 start dist/index.js --name botify-backend --env production
