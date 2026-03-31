@@ -1,20 +1,3 @@
-import path from "path";
-import dotenv from "dotenv";
-
-// Load .env file based on NODE_ENV before anything else
-const envFile =
-  process.env.NODE_ENV === "production"
-    ? path.resolve(__dirname, "../.env.production")
-    : path.resolve(__dirname, "../.env.local");
-
-dotenv.config({ path: envFile });
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("Missing STRIPE_SECRET_KEY in environment variables");
-}
-console.log("Stripe key loaded:", process.env.STRIPE_SECRET_KEY.slice(0, 4) + "****");
-
-// Now import the rest
 import express from "express";
 import cors from "cors";
 import productsRouter from "./routes/products";
@@ -26,29 +9,55 @@ import adminRoutes from "./routes/admins";
 import webhookRouter from "./webhook";
 import paymentsRouter from "./routes/payment";
 
+// --------------------
+// Use cPanel environment variables only
+// --------------------
+// Do NOT load dotenv files
+// const envFile = ...; dotenv.config({ path: envFile }); <-- removed
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("Missing STRIPE_SECRET_KEY in environment variables");
+}
+console.log(
+  "Stripe key loaded:",
+  process.env.STRIPE_SECRET_KEY.slice(0, 4) + "****"
+);
+
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 3000; // use PORT from cPanel env
 
 app.use(cors());
 
+// Webhook
 app.use("/api/webhook", express.raw({ type: "application/json" }));
 app.use("/api/webhook", webhookRouter);
 
+// JSON parsing
 app.use(express.json());
 
+// API routes
 app.use("/api/products", productsRouter);
 app.use("/api/cart", cartRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/categories", categoriesRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admins", adminRoutes);
-app.use("/uploads", express.static("uploads"));
 app.use("/api", paymentsRouter);
 
+// Static uploads
+app.use("/uploads", express.static("uploads"));
+
+// Health check route
 app.get("/health", (_req, res) => {
   res.json({ ok: true, message: "Botify Shop Backend is running" });
 });
 
+// Root route so base URL doesn't 404
+app.get("/", (_req, res) => {
+  res.send("Botify Shop Backend is running. Use /api endpoints or /health.");
+});
+
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
