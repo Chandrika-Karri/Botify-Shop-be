@@ -5,10 +5,10 @@ import { prisma } from "./prisma";
 const router = Router();
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2022-11-15",
+  apiVersion: "2026-02-25.clover",
 });
 
-// ⚠️ IMPORTANT: raw body required
+
 router.post(
   "/webhook",
   // @ts-ignore
@@ -43,6 +43,7 @@ router.post(
         const address = metadata.address;
         const name = metadata.name;
         const email = metadata.email;
+  
 
         if (!items.length) throw new Error("No items in metadata");
 

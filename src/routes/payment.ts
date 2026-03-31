@@ -7,7 +7,7 @@ const router = Router();
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2022-11-15",
+  apiVersion: "2026-02-25.clover",
 });
 
 // Define CartItem type

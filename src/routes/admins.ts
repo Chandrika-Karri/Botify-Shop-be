@@ -7,7 +7,7 @@ const router = Router();
 
 // All routes protected, only super_admin can access
 router.use(authMiddleware, (req, res, next) => {
-  if (req.user.role !== "super_admin") {
+  if (req.user?.role !== "super_admin") {
     return res.status(403).json({ error: "Access denied" });
   }
   next();
