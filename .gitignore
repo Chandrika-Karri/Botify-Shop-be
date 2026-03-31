@@ -6,6 +6,9 @@ dist/
 
 # Environment variables
 .env
+.env.local
+.env.production
+
 
 # SQLite database (local only)
 prisma/dev.db

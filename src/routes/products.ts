@@ -52,7 +52,7 @@ router.get("/", async (_req: Request, res: Response) => {
 // -------------------------
 router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const product = await prisma.product.findUnique({ where: { id } });
+  const product = await prisma.product.findUnique({ where: { id: String(id) } });
   if (!product) return res.status(404).json({ error: "Product not found" });
   res.json(formatProduct(product));
 });
@@ -112,7 +112,7 @@ router.put(
     }
 
     try {
-      const product = await prisma.product.findUnique({ where: { id } });
+      const product = await prisma.product.findUnique({ where: { id: String(id) } });
       if (!product) return res.status(404).json({ error: "Product not found" });
 
       // parse existing images
@@ -132,7 +132,7 @@ router.put(
       const allImages = [...oldImages, ...newImages];
 
       const updated = await prisma.product.update({
-        where: { id },
+        where: { id: String(id) },
         data: {
           name,
           price: Number(price),
@@ -168,7 +168,7 @@ router.put(
 
     try {
       const updated = await prisma.product.update({
-        where: { id },
+        where: { id: String(id) },
         data: { stock: Number(stock) },
       });
 
@@ -191,7 +191,7 @@ router.delete(
     const { id } = req.params;
 
     try {
-      await prisma.product.delete({ where: { id } });
+      await prisma.product.delete({ where: { id: String(id) } });
       res.json({ message: "Product deleted successfully" });
     } catch {
       res.status(404).json({ error: "Product not found" });

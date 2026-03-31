@@ -3,7 +3,7 @@ import { prisma } from "../prisma";
 import { authMiddleware } from "../middleware/authMiddleware";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2022-11-15" });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2026-02-25.clover" });
 
 const router = Router();
 

@@ -4,9 +4,6 @@ import crypto from "crypto";
 
 const router = Router();
 
-// -------------------------
-// Merge Guest Cart
-// -------------------------
 export const mergeGuestCart = async (userId: string, sessionId?: string) => {
   if (!sessionId) return;
 
@@ -67,15 +64,28 @@ router.get("/", async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    const response = items.map((item) => ({
-      ...item,
-      product: {
-        ...item.product,
-        images: Array.isArray(item.product.images)
-          ? item.product.images
-          : JSON.parse(item.product.images),
-      },
-    }));
+    const response = items.map((item) => {
+  let images: any[] = [];
+
+  if (item.product.images) {
+    if (Array.isArray(item.product.images)) {
+      images = item.product.images;
+    } else if (typeof item.product.images === "string") {
+      images = JSON.parse(item.product.images);
+    } else {
+      // If it's a number, boolean, or object, convert to array safely
+      images = [item.product.images];
+    }
+  }
+
+  return {
+    ...item,
+    product: {
+      ...item.product,
+      images,
+    },
+  };
+});
 
     res.json(response);
   } catch (error) {
