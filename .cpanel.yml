@@ -1,27 +1,28 @@
+---
 deployment:
   tasks:
-    - task: Build Backend
+    - task: "Install Dependencies"
       commands:
         - echo "=============================="
-        - echo "Starting backend deployment..."
-        - echo "Using environment variables from cPanel"
-        - echo "PORT: $PORT"
-        - echo "STRIPE_SECRET_KEY: **** (hidden for security)"
-        - echo "DATABASE_URL: **** (hidden for security)"
+        - echo "Installing Node.js dependencies..."
+        - npm ci --production
+        - npm install --include=dev
+        - echo "Dependencies installed."
         - echo "=============================="
 
-        # Install dependencies
-        - echo "Installing Node.js dependencies..."
-        - npm install --production
-        - npm install --include=dev
-
-        # Build TypeScript
+    - task: "Build TypeScript Backend"
+      commands:
+        - echo "=============================="
         - echo "Building TypeScript backend..."
         - npm run build
+        - echo "TypeScript build complete."
+        - echo "=============================="
 
-        # Restart Node app
-        - echo "Restarting Node.js backend..."
+    - task: "Restart Node.js App"
+      commands:
+        - echo "=============================="
+        - echo "Restarting Node.js backend via PM2..."
         - pm2 stop botify-backend || true
         - pm2 start dist/index.js --name botify-backend --env production
-
         - echo "Backend deployment complete!"
+        - echo "=============================="
